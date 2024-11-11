@@ -2,11 +2,12 @@ import sys
 import glob
 from PyQt6.QtWidgets import (QLineEdit, QPushButton, QApplication,
     QVBoxLayout, QHBoxLayout, QDialog, QGroupBox, QLabel, QSpinBox,QDoubleSpinBox, QComboBox, QMessageBox)
-from PyQt6.QtCore import Qt, QSize, QThread, QTime, QDate
+from PyQt6.QtCore import Qt, QSize, QThread, QTime, QDate, QTimer
 import a1324lua
 import measurementJob
 import numpy as np
 from functools import partial
+import time
 import os.path
 
 class MainInterface(QDialog):
@@ -86,6 +87,7 @@ class MainInterface(QDialog):
         self.measResult_labels = []
         self.zero_buttons = []
         self.store_buttons = []
+        self.store50_buttons = []
         self.connect_button = QPushButton("Connect")
         self.connect_button.setFixedSize(QSize(200,50))
         self.connect_button.pressed.connect(self.serialConnection)
@@ -109,6 +111,7 @@ class MainInterface(QDialog):
         self.measResult_labels = []
         self.zero_buttons = []
         self.store_buttons = []
+        self.store50_buttons = []
         for n in range(self.n_stations.value()):
             station_label = QLabel(f"Test Station {n+1}:")
             station_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -123,15 +126,23 @@ class MainInterface(QDialog):
             store_button.pressed.connect(partial(self.storeResult,n))
             store_button.setEnabled(False)
 
+            store50_button = QPushButton("Store 50")
+            store50_button.setFixedSize(QSize(100,50))
+            store50_button.pressed.connect(partial(self.store50Results,n))
+            store50_button.setEnabled(False)
+
             self.measResult_labels.append(measResult_label)
             self.zero_buttons.append(zero_button)
             self.store_buttons.append(store_button)
+            self.store50_buttons.append(store50_button)
+
 
             station_VLayout = QVBoxLayout()
             station_VLayout.addWidget(station_label)
             station_VLayout.addWidget(measResult_label)
             station_VLayout.addWidget(zero_button)
             station_VLayout.addWidget(store_button)
+            station_VLayout.addWidget(store50_button)
 
             meas_HLayout.addLayout(station_VLayout)
         
@@ -187,9 +198,10 @@ class MainInterface(QDialog):
             self.filename.setEnabled(False)
             self.sensitivity.setEnabled(False)
             self.connect_button.setEnabled(False)
-            for zero_button, store_button in zip(self.zero_buttons, self.store_buttons):
+            for zero_button, store_button, store50_button in zip(self.zero_buttons, self.store_buttons, self.store50_buttons):
                 zero_button.setEnabled(True)
                 store_button.setEnabled(True)
+                store50_button.setEnabled(True)
             self.isRunning = True
             self.measurementJob = measurementJob.MeasurementJob(self.serialObj)
             self.measurementJob.measAvailable.connect(self.updateMeasurementLabels)
@@ -201,9 +213,10 @@ class MainInterface(QDialog):
             self.filename.setEnabled(True)
             self.sensitivity.setEnabled(True)
             self.connect_button.setEnabled(True)
-            for zero_button, store_button in zip(self.zero_buttons, self.store_buttons):
+            for zero_button, store_button, store50_button in zip(self.zero_buttons, self.store_buttons, self.store50_buttons):
                 zero_button.setEnabled(False)
                 store_button.setEnabled(False)
+                store50_button.setEnabled(False)
             self.isRunning = False
             self.measurementJob.stopMeasuring = True
             self.measurementThread.terminate()
@@ -224,6 +237,21 @@ class MainInterface(QDialog):
         currentTime = QTime.currentTime().toString()
         self.log.write(f"{n}\t{currentDate}\t{currentTime}\t{(self.lastMeasured[n]-self.zeros[n]):.2f}\t{self.zeros[n]:.2f}\n")
         self.log.flush()
+
+
+    def store50Results(self,n):
+        self.store_count = 0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(lambda: self.store50ResultWithCount(n))
+        self.timer.start(50)
+
+    def store50ResultWithCount(self,n):
+        if self.store_count < 50:
+            self.storeResult(n)
+            self.store_count += 1
+        else:
+            self.timer.stop()
+
         
     def createLogFile(self):
         try:
