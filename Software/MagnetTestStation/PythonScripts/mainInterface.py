@@ -227,7 +227,7 @@ class MainInterface(QDialog):
     def updateMeasurementLabels(self, measList):
         self.lastMeasured = measList
         for meas, label, zero in zip(measList, self.measResult_labels, self.zeros):
-            label.setText(f"{meas-zero:.2f} mT")
+            label.setText(f"{meas-zero:.7f} mT")
 
     def setZero(self,n):
         self.zeros[n] = self.lastMeasured[n]
@@ -235,7 +235,7 @@ class MainInterface(QDialog):
     def storeResult(self,n):
         currentDate = QDate.currentDate().toString()
         currentTime = QTime.currentTime().toString()
-        self.log.write(f"{n}\t{currentDate}\t{currentTime}\t{(self.lastMeasured[n]-self.zeros[n]):.2f}\t{self.zeros[n]:.2f}\n")
+        self.log.write(f"{n}\t{currentDate}\t{currentTime}\t{(self.lastMeasured[n]-self.zeros[n]):.7f}\t{self.zeros[n]:.7f}\n")
         self.log.flush()
 
 
@@ -243,7 +243,7 @@ class MainInterface(QDialog):
         self.store_count = 0
         self.timer = QTimer(self)
         self.timer.timeout.connect(lambda: self.store50ResultWithCount(n))
-        self.timer.start(50)
+        self.timer.start(500)
 
     def store50ResultWithCount(self,n):
         if self.store_count < 50:
